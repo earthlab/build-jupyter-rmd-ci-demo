@@ -1,0 +1,293 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/earth-analytics-lessons
+    docker:
+      - image: earthlab/r-python-eds-lessons-env:latest
+
+    steps:
+      - checkout
+      - run:
+          name: Check conda environment
+          command:
+            conda list
+      - run:
+          name: Get latest lesson commit
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            # ACMRT -- only looks at changed files, not deleted ones
+            changed_files=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMRT -r HEAD 2>&1)
+            # get names of changed files
+            echo "${changed_files} ">> changed_files.txt
+            python scripts/parse_commit.py
+      - run:
+          name: Get current branch
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            echo $(git branch | sed -n -e 's/^\* \(.*\)/\1/p') > current_branch.txt
+      - run:
+          name: Fetch most recent commit message
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            echo $(git log -1 --pretty=%B) > commit_msg_latest.txt
+      - run:
+          name: Get removed, renamed, or moved files
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            deleted_files=$(git diff-tree --no-commit-id --name-only --diff-filter=D -r HEAD 2>&1)
+            # get names of changed files
+            echo "${deleted_files} ">> deleted_files.txt
+            python scripts/parse_deleted.py
+      - run:
+          name: Display modified Jupyter notebooks (.ipynb files)
+          command: |
+            cat changed_notebooks.txt | while read line
+            do
+              echo $line
+            done
+      - run:
+          name: Display modified .Rmd files
+          command: |
+            cat changed_rmd_files.txt | while read line
+            do
+              echo $line
+            done
+      - run:
+          name: Display modified images
+          command: |
+            cat changed_image_files.txt | while read line
+            do
+              echo $line
+            done
+      - run:
+          name: Clone eds-lessons-website
+          working_directory: ~/
+          command: |
+            branch=$(head -1 earth-analytics-lessons/current_branch.txt)
+            echo $branch
+            if [ "$branch" != "master" ]
+            then
+                # check that branch exists on remote eds-lessons-website
+                branch_status=$(git ls-remote --heads https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git "$branch" | wc -l)
+                echo $branch_status
+                # if branch exists...
+                if [ $branch_status == 1 ]
+                then
+                  # clone the remote branch
+                  echo "The branch exists - cloning it"
+                  git clone --depth 1 https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git -b "$branch"
+                else
+                  echo "The branch DOES NOT exists, creating the branch."
+                  # if it does not, clone master and checkout a new branch
+                  git clone --depth 1 https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git
+                  cd eds-lessons-website
+                  git checkout -b "$branch"
+                fi
+            else
+                # when on master, just clone master
+                echo "Working on master"
+                git clone --depth 1 https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git
+            fi
+            ls
+      - run:
+          name: Delete removed/renamed/moved images from website
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            echo -e "Deleting the following images:"
+            cat deleted_image_files.txt | while read line
+            do
+              echo $line
+              image_to_delete=~/eds-lessons-website/$line
+              rm $image_to_delete
+            done
+      - run:
+          name: Delete removed/renamed/moved posts from website
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            echo -e "Deleting the following notebooks and their images:"
+            cat deleted_notebooks.txt | while read line
+            do
+              echo $line
+              post_to_delete=~/eds-lessons-website/_posts/$(echo "$line" | sed 's/.[Rr]md/.md/g; s/.ipynb/.md/g')
+              rm $post_to_delete
+              # clear images dir associated with post
+              image_dir_to_delete=~/eds-lessons-website/images/${line%.*}
+              rm -rf $image_dir_to_delete
+            done
+      - run:
+          name: Move manually added images to website
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            cat changed_image_files.txt | while read line
+            do
+              echo $line
+              # check that the directory where image is stored exists
+              # on eds-lessons-website
+              # and if not create it
+              ldir=~/eds-lessons-website/$(dirname $line)
+              if [ ! -d $ldir ]; then
+                mkdir -p $ldir
+              fi
+              cp $line $ldir/$(basename $line)
+            done
+      - run:
+          name: Execute Jupyter notebooks and export to md
+          working_directory: ~/earth-analytics-lessons
+          no_output_timeout: 900
+          command: |
+            if [ -s changed_notebooks.txt ]; then
+              filenames=$(cat changed_notebooks.txt)
+              echo $filenames
+              python scripts/generate_posts.py $filenames
+            fi
+      - run:
+          name: Knit Rmd to md
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            if [ -s changed_rmd_files.txt ]; then
+              filenames=$(cat changed_rmd_files.txt)
+              echo $filenames
+              Rscript scripts/knit_lessons.R $filenames
+            fi
+      - run:
+          name: Generate .gitignore to bypass posts with errors
+          working_directory: ~/eds-lessons-website
+          command: |
+            # only trigger this step if rmd files were knitted
+            if [[ -f ~/earth-analytics-lessons/nb_errors.txt ]]
+            then
+
+              ct_nb_errors=$(wc -l ~/earth-analytics-lessons/nb_errors.txt | awk '{ print $1 }')
+              if [ $ct_nb_errors -gt 0 ]
+              then
+
+                # make eds-lessons-website .gitignore
+                touch .gitignore
+
+                # append problem filenames to .gitignore
+                cat ~/earth-analytics-lessons/nb_errors.txt >> .gitignore
+
+              fi
+
+            fi
+      - deploy:
+          name: Trigger eds-lessons-website push deployment
+          working_directory: ~/eds-lessons-website
+          command: |
+            # only make a commit when 1 or more files change or are moved/removed/deleted
+            ct_changed_notebooks=$(wc -l ~/earth-analytics-lessons/changed_notebooks.txt | awk '{ print $1 }')
+            # failsafe for when notebooks rebuilt but not modified in commit
+            # (i.e., when rebuilding a directory)
+            if [[ -f ~/earth-analytics-lessons/ipynb_files_built.txt ]]
+            then
+              ct_changed_notebooks=$(($ct_changed_notebooks+$(wc -l ~/earth-analytics-lessons/ipynb_files_built.txt | awk '{ print $1 }')))
+            fi
+
+            ct_changed_rmd_files=$(wc -l ~/earth-analytics-lessons/changed_rmd_files.txt | awk '{ print $1 }')
+            if [[ -f ~/earth-analytics-lessons/r_files_built.txt ]]
+            then
+              ct_changed_rmd_files=$(($ct_changed_rmd_files+$(wc -l ~/earth-analytics-lessons/r_files_built.txt | awk '{ print $1 }')))
+            fi
+
+            ct_changed_image_files=$(wc -l ~/earth-analytics-lessons/changed_image_files.txt | awk '{ print $1 }')
+
+            num_files_changed=$(($ct_changed_notebooks+$ct_changed_rmd_files+$ct_changed_image_files))
+
+            ct_deleted_notebooks=$(wc -l ~/earth-analytics-lessons/deleted_notebooks.txt | awk '{ print $1 }')
+            ct_deleted_image_files=$(wc -l ~/earth-analytics-lessons/deleted_image_files.txt | awk '{ print $1 }')
+            num_files_changed=$(($num_files_changed+$ct_deleted_notebooks+ct_deleted_image_files))
+
+            if [ $num_files_changed -gt 0 ]
+            then
+              git config credential.helper 'cache --timeout=120'
+              git config user.email "earth.lab@colorado.edu"
+              git config user.name "Deployment Bot"
+              OUTPUT=$( GIT_PAGER_IN_USE=true git status )
+              echo "$OUTPUT"
+              git add .
+              # if a .gitignore was made, ensure that it doesn't get pushed to remote
+              git reset -- .gitignore
+              # get current commit message
+              commit_msg_latest=$(head -1 ~/earth-analytics-lessons/commit_msg_latest.txt)
+              git commit --allow-empty -m "$commit_msg_latest"
+              # Push quietly to prevent showing the token in log
+              git push -q https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git
+            else
+              echo No new changes to commit
+            fi
+
+            # if any posts knitted with errors, show status report and force build fail
+            # only trigger this step if rmd files were knitted
+            if [[ -f ~/earth-analytics-lessons/nb_errors.txt ]]
+            then
+              ct_nb_errors=$(wc -l ~/earth-analytics-lessons/nb_errors.txt | awk '{ print $1 }')
+              if [ $ct_nb_errors -gt 0 ]
+              then
+              echo -e '\nEncountered errors building the following lessons:'
+                cat ~/earth-analytics-lessons/nb_errors.txt | while read line
+                do
+                  echo $line
+                done
+                exit 125
+              fi
+            fi
+
+  weekly-build:
+    working_directory: ~/earth-analytics-lessons
+    docker:
+      - image: earthlab/r-python-eds-lessons-env:latest
+    steps:
+      - checkout
+      - run:
+          name: Check conda environment
+          command:
+            conda list
+      - run:
+          name: Clone eds-lessons-website
+          working_directory: ~/
+          command: |
+            git clone --depth 1 https://${EDS_LESSONS_GITHUB_TOKEN_EL}@github.com/earthlab/eds-lessons-website.git
+      - run:
+          name: Execute all rmd files with knitr
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            Rscript scripts/knit_lessons.R all
+      - run:
+          name: Execute all notebooks with papermill
+          working_directory: ~/earth-analytics-lessons
+          no_output_timeout: 900
+          command: |
+            python scripts/generate_posts.py all
+      - run:
+          name: Display problem notebooks and trigger build fail as needed
+          working_directory: ~/earth-analytics-lessons
+          command: |
+            if [[ -f ~/earth-analytics-lessons/nb_errors.txt ]]
+            then
+              ct_nb_errors=$(wc -l ~/earth-analytics-lessons/nb_errors.txt | awk '{ print $1 }')
+              if [ $ct_nb_errors -gt 0 ]
+              then
+              echo -e '\nEncountered errors building the following lessons:'
+                cat ~/earth-analytics-lessons/nb_errors.txt | while read line
+                do
+                  echo $line
+                done
+                exit 125
+              fi
+            fi
+
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+  weekly:
+    triggers:
+      - schedule:
+          cron: "0 7 * * 1,2,3,4,5"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - weekly-build
