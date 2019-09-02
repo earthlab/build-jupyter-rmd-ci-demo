@@ -10,8 +10,6 @@ Welcome to autobuild-lessons's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   overview
-
 
 
 Indices and tables
