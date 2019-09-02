@@ -27,6 +27,14 @@ release = 'beta'
 
 # -- General configuration ---------------------------------------------------
 
+
+# Support markdown
+from recommonmark.parser import CommonMarkParser
+
+source_parsers = {'.md': CommonMarkParser}
+
+source_suffix = ['.rst', '.md']
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
