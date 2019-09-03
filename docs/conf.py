@@ -17,9 +17,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'autobuild-lessons'
-copyright = '2019, leah a wasser'
-author = 'leah a wasser'
+project = 'Autobuild Python and R Lessons'
+copyright = '2019, Leah A. Wasser'
+author = 'Earth Lab, Leah Wasser, Joe Tucillo, Gina Li'
 
 # The full version, including alpha/beta/rc tags
 release = 'beta'
@@ -55,7 +55,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
