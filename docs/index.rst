@@ -6,12 +6,18 @@
 Documentation For the Earth Lab Earth Data Science.org Learning Portal CI Pipeline
 ==================================================================================
 
-Welcome to our documentation page. Here you will find
+Below you will find documentation for a CI Pipeline that we built at earth Lab.
+This build automagically takes `Rmarkdown` and `Jupyter notebook` files, runs
+them and then creates an output markdown file to be used in GitHub pages.
+
+The build is in operation but needs considerable cleanup. All contributions are
+welcome.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   about
    overview
    ssh-authentication
    todo

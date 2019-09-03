@@ -1,10 +1,15 @@
 # Autobuild Pipeline for Earthdatascience.org - Overview
 
-The earthdatascience.org learning portal build has several high level steps.
+The building Jupyter NOtebooks and RMarkdown files for the www.earthdatascience.org
+learning portal build has several high level steps.
 
-1. Original lessons are stored in the **earth-analytics-lessons** repo. This is where you will find .ipynb, .rmd and image files that are manually added to lessons. When a lesson is updated or an image is added to the repo, it triggers a build that produces a markdown file for the lesson and moves any related images.
-2. Once lessons are built, they are moved to the eds-lessons-website directory. This is where the final versions of the .md files and associated images (both manually added and auto-build created) live.
-3. The last step is temporary. Because the live website currently lives on earthlab.github.io, we will need to push files committed to the master branch of the eds-lessons repo to the live website. a smaller CI build is in place to move commits to master from `eds-lessons-website`.
+1. Original lessons are stored in the `earth-analytics-lessons` repo. This is where you will find `.ipynb`, `.rmd` and image files that are manually added to lessons. When a lesson is updated or an image is added to the repo, it triggers a build that produces a markdown file for the lesson and moves any related images.
+2. Once lessons are built, they are moved to the `eds-lessons-website` directory. This is where the final versions of the .md files and associated images (both manually added and auto-build created) live.
+3. The last step is temporary. Because the live website currently lives on `earthlab.github.io`, we push files committed to the master branch of the `eds-lessons-website` repo to the live `earthlab.github.io` website. A smaller CI build is in place to process those commits. Most people will not need step 3.
+And it's very likely that you might not need step 2 either.
+
+Our build has extra layers because we host homework assignment answers in the build.
+Those answers can not be public!
 
 ## Directories
 
