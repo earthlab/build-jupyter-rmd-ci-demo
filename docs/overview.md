@@ -1,14 +1,10 @@
-# EDS-Lessons Final Build Documentation
+# Autobuild Pipeline for Earthdatascience.org - Overview
 
-
-
-# EDS-Lessons Final Build Documentation
-
-The EDS lessons build has several high level steps.
+The earthdatascience.org learning portal build has several high level steps.
 
 1. Original lessons are stored in the **earth-analytics-lessons** repo. This is where you will find .ipynb, .rmd and image files that are manually added to lessons. When a lesson is updated or an image is added to the repo, it triggers a build that produces a markdown file for the lesson and moves any related images.
-2. Once lessons are built, they are moved to the eds-lessons-website directory. This is where the final versions of the .md files and associated images (both manually added and autobuild created) live.
-3. The last step is temporary. Bceause the live website currently lives on earthlab.github.io, we will need to push files commited to the master branch of the eds-lessons repo to the live website. a smaller CI build is in place to move commits to master from `eds-lessons-website`.
+2. Once lessons are built, they are moved to the eds-lessons-website directory. This is where the final versions of the .md files and associated images (both manually added and auto-build created) live.
+3. The last step is temporary. Because the live website currently lives on earthlab.github.io, we will need to push files committed to the master branch of the eds-lessons repo to the live website. a smaller CI build is in place to move commits to master from `eds-lessons-website`.
 
 ## Directories
 
@@ -396,37 +392,6 @@ to mimic the directory structure of the CircleCI build.
 - If there are any notebooks with missing data, the landing page can be run first to fetch it.
     > [name=Joe] Leah, I know this was the case previously when I was testing rebuilds of the notebooks (i.e., I remember Week 2 `lidar-intro/2018-02-05-lidar03-chm-dtm-dsm.ipynb` used to have this problem). However, it looks like the data downloads are now in place throughout the notebooks? If this is the case, just delete this bullet.
 
-#### Remote Debugging
-
-Remote debugging refers to debugging performed on the CircleCI build.
-
-#### Interactive debugging via SSH
-
-Debugging can be performed interactively via CLI, using SSH to acess a build after it is run. This can be handy for checking the content of intermediate files generated within the build, whether files updated as expected, etc.
-
-You will need a local RSA key to access the build via SSH. See [Authenticating SSH](https://hackmd.io/psb27zRdTHqJfHtNG8kRXw?view#Authenticating-SSH) for instuctions on setting up an RSA key on your machine.
-
-On the status page for your CircleCI job, select the drop-down menu next to the button at the upper-right that says `Rebuild` and select `Rerun job with SSH`. The job will rerun _without deploying changes_ and when finished will instead list a remote address where the job can be accessed. In the terminal, enter the command
-
-```
-ssh -p XXXXX xx.xxx.xxx.xx
-```
-
-using the values given at the end of the CircleCI build after `-p`. These represent the unique ID and address of the remote CircleCI job, respectively. Answer `yes` to the prompt about the remote RSA key.
-
-Once you are finished debugging, leave the job with the command `exit`. The job will remain active for another 10 minutes, then time out. **Note** that you can SSH into a job more than once, but it _will not_ have the same ID and address as last time.
-
-#### Debugging an R Lesson knit job
-
-It is not possible to interactively debug an `.rmd` as it is knitting. However, variables in the notebook may be viewed from the knit progress report once the build completes by inserting this code chunk (uncommented):
-
-```
-# ```{r message = F}
-# message(print(...))
-# ```
-```
-
-where `...` is some variable or value you are interested in viewing from the knit job. The nested `print` function should coerce whatever data type the target variable/value is to a string that can be output by `message`.
 
 
 ## Rebuilding specific course directories
@@ -608,38 +573,6 @@ plot <- image_read("images/blog/2019-03-18-four-must-have-skills-in-earth-data-s
 final_plot <- image_append(image_scale(c(plot, logo), "1000"), stack = TRUE)
 image_write(final_plot, "images/blog/2019-03-18-four-must-have-skills-in-earth-data-science/earth-data-science-skills-in-demand-automated-workflows.png")
 ```
-
-## Authenticating SSH
-
-CircleCI provides [these instructions](https://circleci.com/docs/2.0/ssh-access-jobs/) for authenticating SSH with your account.
-
-You will need to set up a local RSA key before being able to enter a build. This is device-specific, so if you are working on multiple machines, you will need to run through these steps several times.
-
-1. Checking whether a local SSH key exists:
-
-    https://help.github.com/en/articles/error-permission-denied-publickey
-
-2. Generating a new local SSH key if one is needed:
-
-    https://help.github.com/en/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-
-3. Adding the new SSH key to GitHub account:
-
-    https://help.github.com/en/articles/adding-a-new-ssh-key-to-your-github-account
-
-    **Note** that you will need to copy the SSH key you generated _from the terminal_ to your clipboard. There are [different ways to do this](https://www.digitalocean.com/community/questions/copy-ssh-key-to-clipboard) based on your OS.
-
-4. Finally, verify your connection to GitHub:
-
-    ```
-    ssh -T git@github.com
-    ```
-
-    Enter `yes` if prompted. Then you should see a message like:
-
-    ```
-    Hi jvtcl! You've successfully authenticated...
-    ```
 
 
 ## Cliff Notes -- force rebuild specifical directories
